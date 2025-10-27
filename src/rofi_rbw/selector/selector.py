@@ -18,9 +18,10 @@ class Selector(ABC):
         from .bemenu import Bemenu
         from .fuzzel import Fuzzel
         from .rofi import Rofi
+        from .walker import Walker
         from .wofi import Wofi
 
-        available_selectors = [Rofi, Wofi, Fuzzel, Bemenu]
+        available_selectors = [Rofi, Wofi, Fuzzel, Bemenu, Walker]
 
         if name is not None:
             try:
