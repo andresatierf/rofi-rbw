@@ -7,11 +7,13 @@ from ..models.action import Action
 from ..models.detailed_entry import DetailedEntry
 from ..models.entry import Entry
 from ..models.keybinding import Keybinding
-from ..models.targets import Target, Targets
+from ..models.targets import Target, Targets, TypeTarget
 from .selector import Selector
 
 
 class Walker(Selector):
+    select_keybind = Keybinding("", None, [TypeTarget("Select")])
+
     @staticmethod
     def supported() -> bool:
         return is_installed("walker")
@@ -50,14 +52,12 @@ class Walker(Selector):
             encoding="utf-8",
         )
 
-        print(walker)
-
         if walker.returncode == 130:
             return None, Action.CANCEL, None
         elif walker.returncode == 0:
-            keybinding = keybindings[7]  # 4 - copy password, 5 - copy username
-            return_action = keybinding.action
-            return_targets = keybinding.targets
+            keybinding = self.__select_keybindings(prompt, keybindings)
+            return_action = keybinding.action if keybinding else None
+            return_targets = keybinding.targets if keybinding else None
         else:
             return_action = None
             return_targets = None
@@ -70,6 +70,45 @@ class Walker(Selector):
             f"{self._format_folder(it, show_folders)}{it.name}{self.justify(it, max_width, show_folders)} : {it.username or '~~~'}"
             for it in entries
         ]
+
+    def __select_keybindings(self, prompt: str, keybindings: List[Keybinding]) -> Keybinding:
+        parameters = [
+            "walker",
+            "--dmenu",
+            "-p",
+            prompt,
+        ]
+
+        walker = run(
+            parameters,
+            input="\n".join(self.__format_keybinds(keybindings)),
+            capture_output=True,
+            encoding="utf-8",
+        )
+
+        if walker.returncode != 0:
+            return None, Action.CANCEL
+
+        return self.__parse_keybinding(walker.stdout)
+
+    def __format_keybinds(self, keybindings: List[Keybinding]) -> List[str]:
+        return [
+            f"{keybind.action and keybind.action.value or 'none'}  {keybind.targets and ':'.join([target.raw for target in keybind.targets]) or 'none'}"
+            for keybind in [self.select_keybind] + keybindings
+        ]
+
+    def __parse_keybinding(self, formatted_string: str) -> Keybinding:
+        match = re.compile("(?P<action>.*?) +(?P<targets>.*)").search(formatted_string)
+
+        action = match.group("action").strip()
+        targets = match.group("targets").split(":")
+        return Keybinding(
+            "",
+            Action(action) if action != "none" else None,
+            [TypeTarget(target_string) for target_string in targets]
+            if len(targets) != 1 or targets[0] != self.select_keybind.targets[0].raw
+            else None,
+        )
 
     def __parse_formatted_string(self, formatted_string: str) -> Entry:
         match = re.compile("(?:(?P<folder>.+)/)?(?P<name>.*?) +: (?P<username>.*)").search(formatted_string)
@@ -95,24 +134,25 @@ class Walker(Selector):
         # if show_help_message and keybindings:
         #     parameters.extend(self.__format_keybindings_message(keybindings))
 
-        rofi = run(
+        walker = run(
             parameters,
             input="\n".join(self._format_targets_from_entry(entry)),
             capture_output=True,
             encoding="utf-8",
         )
 
-        if rofi.returncode == 130:
+        if walker.returncode == 130:
             return None, Action.CANCEL
-        elif rofi.returncode == 0:
-            action = keybindings[1].action
+        elif walker.returncode == 0:
+            action = keybindings[0].action
         else:
             action = None
 
-        return (self._extract_targets(rofi.stdout)), action
+        return (self._extract_targets(walker.stdout)), action
 
     def __build_parameters_for_keybindings(self, keybindings: List[Keybinding]) -> List[str]:
         params = []
+        return params
         for index, keybinding in enumerate(keybindings):
             params.extend([f"-kb-custom-{1 + index}", keybinding.shortcut])
 
