@@ -24,31 +24,26 @@ class RofiRbw(object):
         self.active_window = self.typer.get_active_window()
 
     def main(self) -> None:
-        entries = self.rbw.list_entries()
+        while True:
+            entries = self.rbw.list_entries()
 
-        if self.args.use_cache:
-            cache = Cache()
-            entries = cache.sorted(entries)
+            if self.args.use_cache:
+                cache = Cache()
+                entries = cache.sorted(entries)
 
-        (selected_targets, selected_action, selected_entry) = self.selector.show_selection(
-            entries,
-            self.args.prompt,
-            self.args.show_help,
-            self.args.show_folders,
-            self.args.parsed_keybindings,
-            self.args.selector_args,
-        )
-
-        if selected_action == Action.SYNC:
-            self.rbw.sync()
             (selected_targets, selected_action, selected_entry) = self.selector.show_selection(
-                self.rbw.list_entries(),
+                entries,
                 self.args.prompt,
                 self.args.show_help,
                 self.args.show_folders,
                 self.args.parsed_keybindings,
                 self.args.selector_args,
             )
+
+            if selected_action == Action.SYNC:
+                self.rbw.sync()
+            else:
+                break
 
         if selected_action == Action.CANCEL:
             return
