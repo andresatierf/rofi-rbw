@@ -115,6 +115,7 @@ class RofiRbw(object):
                 self.typer.press_key(Key.ENTER)
             elif target == TypeTargets.TAB:
                 self.typer.press_key(Key.TAB)
+                time.sleep(0.2)
             else:
                 self.typer.type_characters(detailed_entry[target], self.args.key_delay, self.active_window)
         if Targets.PASSWORD in targets and isinstance(detailed_entry, Credentials) and detailed_entry.totp != "":
